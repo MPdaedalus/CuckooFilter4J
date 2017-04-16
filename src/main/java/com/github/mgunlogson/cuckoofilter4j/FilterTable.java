@@ -16,17 +16,12 @@
 
 package com.github.mgunlogson.cuckoofilter4j;
 
-import static com.google.common.base.Preconditions.checkArgument;
+
 
 import java.io.Serializable;
 import java.util.Objects;
 import java.util.concurrent.ThreadLocalRandom;
 
-
-import javax.annotation.Nullable;
-
-import com.google.common.math.IntMath;
-import com.google.common.math.LongMath;
 
 /**
  * This class represents the link to access methods on the underlying BitSet.
@@ -69,16 +64,52 @@ final class FilterTable implements Serializable {
 	 */
 	static FilterTable create(int bitsPerTag, long numBuckets) {
 		// why would this ever happen?
-		checkArgument(bitsPerTag < 48, "tagBits (%s) should be less than 48 bits", bitsPerTag);
+		if(bitsPerTag > 47) throw new IllegalArgumentException("tagBits should be less than 48 bits");
 		// shorter fingerprints don't give us a good fill capacity
-		checkArgument(bitsPerTag > 4, "tagBits (%s) must be > 4", bitsPerTag);
-		checkArgument(numBuckets > 1, "numBuckets (%s) must be > 1", numBuckets);
+		if(bitsPerTag < 5) throw new IllegalArgumentException("tagBits must be > 4");
+		if(numBuckets < 2) throw new IllegalArgumentException("numBuckets must be > 1");
 		// checked so our implementors don't get too.... "enthusiastic" with
 		// table size
-		long bitsPerBucket = IntMath.checkedMultiply(CuckooFilter.BUCKET_SIZE, bitsPerTag);
-		long bitSetSize = LongMath.checkedMultiply(bitsPerBucket, numBuckets);
+		long bitsPerBucket = checkedMultiply(CuckooFilter.BUCKET_SIZE, bitsPerTag);
+		long bitSetSize = checkedMultiply(bitsPerBucket, numBuckets);
 		LongBitSet memBlock = new LongBitSet(bitSetSize);
 		return new FilterTable(memBlock, bitsPerTag, numBuckets);
+	}
+	
+	 public static int checkedMultiply(int a, int b) {
+		    long result = (long) a * b;
+		    checkNoOverflow(result == (int) result);
+		    return (int) result;
+	}
+	 
+	 public static long checkedMultiply(long a, long b) {
+		    // Hacker's Delight, Section 2-12
+		    int leadingZeros = Long.numberOfLeadingZeros(a) + Long.numberOfLeadingZeros(~a)
+		        + Long.numberOfLeadingZeros(b) + Long.numberOfLeadingZeros(~b);
+		    /*
+		     * If leadingZeros > Long.SIZE + 1 it's definitely fine, if it's < Long.SIZE it's definitely
+		     * bad. We do the leadingZeros check to avoid the division below if at all possible.
+		     *
+		     * Otherwise, if b == Long.MIN_VALUE, then the only allowed values of a are 0 and 1. We take
+		     * care of all a < 0 with their own check, because in particular, the case a == -1 will
+		     * incorrectly pass the division check below.
+		     *
+		     * In all other cases, we check that either a is 0 or the result is consistent with division.
+		     */
+		    if (leadingZeros > Long.SIZE + 1) {
+		      return a * b;
+		    }
+		    checkNoOverflow(leadingZeros >= Long.SIZE);
+		    checkNoOverflow(a >= 0 | b != Long.MIN_VALUE);
+		    long result = a * b;
+		    checkNoOverflow(a == 0 || result / a == b);
+		    return result;
+		  }
+	 
+	 private static void checkNoOverflow(boolean condition) {
+		    if (!condition) {
+		      throw new ArithmeticException("overflow");
+		    }
 	}
 
 	/**
@@ -269,7 +300,7 @@ final class FilterTable implements Serializable {
 	}
 
 	@Override
-	public boolean equals(@Nullable Object object) {
+	public boolean equals(Object object) {
 		if (object == this) {
 			return true;
 		}

@@ -16,11 +16,11 @@
 
 package com.github.mgunlogson.cuckoofilter4j;
 
-import static com.google.common.base.Preconditions.checkArgument;
+
 
 import java.util.concurrent.locks.StampedLock;
 
-import com.google.common.annotations.VisibleForTesting;
+
 
 /**
  * Maintains a lock array corresponding to bucket indexes and the segment of the
@@ -38,9 +38,8 @@ final class SegmentedBucketLocker {
 	private final int concurrentSegments;
 
 	SegmentedBucketLocker(int expectedConcurrency) {
-		checkArgument(expectedConcurrency > 0, "expectedConcurrency (%s) must be > 0.", expectedConcurrency);
-		checkArgument((expectedConcurrency & (expectedConcurrency - 1)) == 0,
-				"expectedConcurrency (%s) must be a power of two.", expectedConcurrency);
+		if(expectedConcurrency < 1) throw new IllegalArgumentException("expectedConcurrency must be > 0.");
+		if(!((expectedConcurrency & (expectedConcurrency - 1)) == 0)) throw new IllegalArgumentException("expectedConcurrency (%s) must be a power of two.");
 		// most operations lock two buckets, so for X threads we should have
 		// roughly 2X segments.
 		this.concurrentSegments = expectedConcurrency * 2;
@@ -48,13 +47,12 @@ final class SegmentedBucketLocker {
 		for (int i = 0; i < lockAry.length; i++) {
 			lockAry[i] = new StampedLock();
 		}
-
 	}
 
 	/**
 	 *   returns the segment that bucket index belongs to
 	 */
-	@VisibleForTesting
+
 	private int getBucketLock(long bucketIndex) {
 		return (int) (bucketIndex % concurrentSegments);
 	}

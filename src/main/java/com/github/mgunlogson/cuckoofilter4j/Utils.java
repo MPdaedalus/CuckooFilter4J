@@ -17,12 +17,10 @@
 package com.github.mgunlogson.cuckoofilter4j;
 
 import java.io.Serializable;
-import java.math.RoundingMode;
 import java.util.Objects;
 
-import javax.annotation.Nullable;
 
-import com.google.common.math.DoubleMath;
+
 
 /**
  * Enums, small objects, and internal calculation used by the filter
@@ -31,45 +29,36 @@ import com.google.common.math.DoubleMath;
  *
  */
 public final class Utils {
-
-	/**
-	 * The hashing algorithm used internally.
-	 * 
-	 * @author Mark Gunlogson
-	 *
+	
+	// Primes if treated as unsigned
+    private static final long P1 = -7046029288634856825L;
+    private static final long P2 = -4417276706812531889L;
+    private static final long P3 = 1609587929392839161L;
+    private static final long P4 = -8796714831421723037L;
+    private static final long P5 = 2870177450012600261L;
+    private static final double LN_2 = StrictMath.log(2);
+    
+    
+    /**
+	 * xxHash on primitives, taken from OpenHFT ZeroAllocation hashing project
+	 * https://github.com/OpenHFT/Zero-Allocation-Hashing
 	 */
-	public enum Algorithm {
-		/**
-		 * Murmer3 - 32 bit version, This is the default.
-		 */
-		Murmur3_32(0),
-		/**
-		 * Murmer3 - 128 bit version. Slower than 32 bit Murmer3, not sure why
-		 * you would want to use this.
-		 */
-		Murmur3_128(1),
-		/**
-		 * SHA1 secure hash.
-		 */
-		sha256(2),
-		/**
-		 * SipHash(2,4) secure hash.
-		 */
-		sipHash24(3),
-		/**
-		 * xxHash 64bit.
-		 */
-		xxHash64(4);
-		private final int id;
-
-		Algorithm(int id) {
-			this.id = id;
-		}
-
-		public int getValue() {
-			return id;
-		}
-	}
+  
+    public static long hashLong(long input,long seed) {
+        input = Long.reverseBytes(input);
+        long hash = seed + P5 + 8;
+        input *= P2;
+        input = Long.rotateLeft(input, 31);
+        input *= P1;
+        hash ^= input;
+        hash = Long.rotateLeft(hash, 27) * P1 + P4;
+        hash ^= hash >>> 33;
+        hash *= P2;
+        hash ^= hash >>> 29;
+        hash *= P3;
+        hash ^= hash >>> 32;
+        return hash;
+    }
 
 	/**
 	 * when the filter becomes completely full, the last item that fails to be
@@ -122,7 +111,7 @@ public final class Utils {
 		}
 
 		@Override
-		public boolean equals(@Nullable Object object) {
+		public boolean equals(Object object) {
 			if (object == this) {
 				return true;
 			}
@@ -150,7 +139,11 @@ public final class Utils {
 		 * equation from Cuckoo Filter: Practically Better Than Bloom Bin Fan,
 		 * David G. Andersen, Michael Kaminsky , Michael D. Mitzenmacher
 		 */
-		return DoubleMath.roundToInt(DoubleMath.log2((1 / fpProb) + 3) / loadFactor, RoundingMode.UP);
+		return (int) Math.ceil(log2((1 / fpProb) + 3) / loadFactor);
+	}
+	
+	 public static double log2(double x) {
+		    return StrictMath.log(x) / LN_2; // surprisingly within 1 ulp according to tests
 	}
 
 	/**
@@ -169,7 +162,7 @@ public final class Utils {
 		 * "Modulo Bias". Only time we can get perfectly distributed index is
 		 * when numBuckets is a power of 2.
 		 */
-		long bucketsNeeded = DoubleMath.roundToLong((1.0 / loadFactor) * maxKeys / bucketSize, RoundingMode.UP);
+		long bucketsNeeded = (long) Math.ceil((1.0 / loadFactor) * maxKeys / bucketSize);
 		// get next biggest power of 2
 		long bitPos = Long.highestOneBit(bucketsNeeded);
 		if (bucketsNeeded > bitPos)

@@ -187,11 +187,11 @@ final class FilterTable implements Serializable {
 		for (long i = tagStartIdx; i < tagEndIdx; i++) {
 			if ((newTag & (1L << tagPos)) != 0) {
 				if (memBlock.getAndSet(i)) {
-					tag |= 1 << tagPos;
+					tag |= 1L << tagPos;
 				}
 			} else {
 				if (memBlock.getAndClear(i)) {
-					tag |= 1 << tagPos;
+					tag |= 1L << tagPos;
 				}
 			}
 			tagPos++;
